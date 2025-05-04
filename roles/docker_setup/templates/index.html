@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sunhare MediCare Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [patients, setPatients] = useState([]);
+      const [form, setForm] = useState({ name: '', age: '', condition: '' });
+
+      // Fetch patients from API
+      useEffect(() => {
+        axios.get('http://localhost:5000/patients')
+          .then(response => setPatients(response.data))
+          .catch(error => console.error('Error fetching patients:', error));
+      }, []);
+
+      // Handle form input changes
+      const handleInputChange = (e) => {
+        setForm({ ...form, [e.target.name]: e.target.value });
+      };
+
+      // Add new patient
+      const addPatient = (e) => {
+        e.preventDefault();
+        axios.post('http://localhost:5000/patients', form)
+          .then(response => {
+            setPatients([...patients, response.data]);
+            setForm({ name: '', age: '', condition: '' });
+          })
+          .catch(error => console.error('Error adding patient:', error));
+      };
+
+      const appointments = [
+        { id: 1, patient: 'John Doe', time: '2025-05-04 10:00 AM' },
+        { id: 2, patient: 'Jane Smith', time: '2025-05-04 11:30 AM' },
+      ];
+
+      return (
+        <div className="min-h-screen bg-gray-100">
+          {/* Header */}
+          <header className="bg-teal-700 text-white text-center py-6">
+            <h1 className="text-4xl font-bold">Sunhare MediCare Dashboard</h1>
+            <p className="mt-2 text-lg">Healthcare Management Simplified</p>
+          </header>
+
+          {/* Navigation */}
+          <nav className="bg-teal-600 py-4">
+            <ul className="flex justify-center space-x-8">
+              {['Dashboard', 'Patients', 'Appointments'].map((tab) => (
+                <li key={tab}>
+                  <button
+                    className={`text-white font-semibold ${activeTab.toLowerCase() === tab.toLowerCase() ? 'border-b-2 border-yellow-400' : ''}`}
+                    onClick={() => setActiveTab(tab.toLowerCase())}
+                  >
+                    {tab}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {/* Main Content */}
+          <main className="max-w-6xl mx-auto p-6">
+            {activeTab === 'dashboard' && (
+              <section>
+                <h2 className="text-3xl font-semibold text-teal-700 mb-4">Dashboard</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold text-teal-700 mb-2">Patient Statistics</h3>
+                    <canvas id="patientChart" width="400" height="200"></canvas>
+                  </div>
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold text-teal-700 mb-2">Quick Stats</h3>
+                    <p className="text-gray-600">Total Patients: {patients.length}</p>
+                    <p className="text-gray-600">Appointments Today: {appointments.length}</p>
+                  </div>
+                </div>
+              </section>
+            )}
+            {activeTab === 'patients' && (
+              <section>
+                <h2 className="text-3xl font-semibold text-teal-700 mb-4">Patients</h2>
+                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                  <h3 className="text-xl font-semibold text-teal-700 mb-4">Add New Patient</h3>
+                  <form onSubmit={addPatient} className="space-y-4">
+                    <div>
+                      <label className="block text-gray-700">Name</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={form.name}
+                        onChange={handleInputChange}
+                        className="w-full p-2 border rounded"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700">Age</label>
+                      <input
+                        type="number"
+                        name="age"
+                        value={form.age}
+                        onChange={handleInputChange}
+                        className="w-full p-2 border rounded"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700">Condition</label>
+                      <input
+                        type="text"
+                        name="condition"
+                        value={form.condition}
+                        onChange={handleInputChange}
+                        className="w-full p-2 border rounded"
+                        required
+                      />
+                    </div>
+                    <button type="submit" className="bg-teal-600 text-white py-2 px-4 rounded hover:bg-teal-500">
+                      Add Patient
+                    </button>
+                  </form>
+                </div>
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-teal-100">
+                        <th className="p-2">ID</th>
+                        <th className="p-2">Name</th>
+                        <th className="p-2">Age</th>
+                        <th className="p-2">Condition</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {patients.map((patient) => (
+                        <tr key={patient.id} className="border-b">
+                          <td className="p-2">{patient.id}</td>
+                          <td className="p-2">{patient.name}</td>
+                          <td className="p-2">{patient.age}</td>
+                          <td className="p-2">{patient.condition}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+            {activeTab === 'appointments' && (
+              <section>
+                <h2 className="text-3xl font-semibold text-teal-700 mb-4">Appointments</h2>
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <ul className="space-y-2">
+                    {appointments.map((appt) => (
+                      <li key={appt.id} className="border-b py-2">
+                        <span className="font-semibold">{appt.patient}</span> - {appt.time}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+            )}
+          </main>
+
+          {/* Footer */}
+          <footer className="bg-teal-700 text-white text-center py-4">
+            <p>© 2025 Sunhare MediCare Dashboard. All rights reserved.</p>
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+
+    // Chart.js for Patient Statistics
+    const ctx = document.getElementById('patientChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Hypertension', 'Diabetes', 'Asthma'],
+        datasets: [{
+          label: 'Patient Conditions',
+          data: [1, 1, 1], // Static for demo, can be dynamic
+          backgroundColor: ['#38b2ac', '#319795', '#2dd4bf'],
+        }],
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true,
+          },
+        },
+      },
+    });
+  </script>
+</body>
+</html>

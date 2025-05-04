@@ -1,0 +1,13 @@
+- name: Restart Nginx container
+  docker_container:
+    name: nginx
+    state: started
+    restart: yes
+  become: yes
+
+- name: Restart Prometheus container
+  docker_container:
+    name: prometheus
+    state: started
+    restart: yes
+  become: yes

@@ -1,0 +1,177 @@
+- name: Ensure Docker is installed
+  apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+  become: yes
+  register: docker_install
+  failed_when: docker_install.failed
+
+- name: Ensure Docker service is running
+  service:
+    name: docker
+    state: started
+    enabled: yes
+  become: yes
+  when: docker_install is success
+
+- name: Ensure Docker network exists
+  docker_network:
+    name: medicare
+    state: present
+  become: yes
+
+- name: Ensure PostgreSQL container is running
+  docker_container:
+    name: postgres
+    image: postgres:13
+    state: started
+    ports:
+      - "5432:5432"
+    env:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: medicare
+    volumes:
+      - "/tmp/postgres:/var/lib/postgresql/data"
+    networks:
+      - name: medicare
+
+- name: Ensure backend directory exists
+  file:
+    path: /tmp/backend
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Remove old backend files
+  file:
+    path: /tmp/backend
+    state: absent
+  become: yes
+
+- name: Recreate backend directory
+  file:
+    path: /tmp/backend
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Copy Flask backend files
+  copy:
+    src: "{{ item }}"
+    dest: /tmp/backend/
+    mode: '0644'
+  loop:
+    - templates/backend/app.py
+    - templates/backend/Dockerfile
+    - templates/backend/requirements.txt
+  become: yes
+
+- name: Build Flask backend image
+  docker_image:
+    name: flask-backend
+    tag: latest
+    source: build
+    build:
+      path: /tmp/backend
+      dockerfile: Dockerfile
+    force_source: yes
+    state: present
+  become: yes
+
+- name: Ensure Flask backend container is running
+  docker_container:
+    name: flask
+    image: flask-backend:latest
+    state: started
+    ports:
+      - "5000:5000"
+    networks:
+      - name: medicare
+
+- name: Ensure Nginx container is running
+  docker_container:
+    name: nginx
+    image: nginx:latest
+    state: started
+    ports:
+      - "5050:80"
+    volumes:
+      - "/tmp/nginx/html:/usr/share/nginx/html:ro"
+    networks:
+      - name: medicare
+
+- name: Ensure Nginx html directory exists on host
+  file:
+    path: /tmp/nginx/html
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Copy React app files to Nginx
+  copy:
+    src: "{{ item }}"
+    dest: /tmp/nginx/html/
+    mode: '0644'
+  loop:
+    - templates/index.html
+  become: yes
+  notify: Restart Nginx container
+
+- name: Ensure Prometheus Nginx exporter is running
+  docker_container:
+    name: nginx-exporter
+    image: nginx/nginx-prometheus-exporter:latest
+    state: started
+    ports:
+      - "9113:9113"
+    command: -nginx.scrape-uri=http://nginx:80/stub_status
+    networks:
+      - name: medicare
+
+- name: Ensure Prometheus is running
+  docker_container:
+    name: prometheus
+    image: prom/prometheus:latest
+    state: started
+    ports:
+      - "9090:9090"
+    volumes:
+      - "/tmp/prometheus:/etc/prometheus"
+    command: --config.file=/etc/prometheus/prometheus.yml
+    networks:
+      - name: medicare
+
+- name: Ensure Prometheus configuration exists
+  copy:
+    content: |
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: 'nginx'
+          static_configs:
+            - targets: ['nginx-exporter:9113']
+        - job_name: 'flask'
+          static_configs:
+            - targets: ['flask:5000']
+    dest: /tmp/prometheus/prometheus.yml
+    mode: '0644'
+  become: yes
+  notify: Restart Prometheus container
+
+- name: Ensure Grafana is running
+  docker_container:
+    name: grafana
+    image: grafana/grafana:latest
+    state: started
+    ports:
+      - "3000:3000"
+    networks:
+      - name: medicare
+
+- name: Ensure Nginx container is restarted if files change
+  meta: flush_handlers
+
+- name: Ensure Prometheus container is restarted if config changes
+  meta: flush_handlers
