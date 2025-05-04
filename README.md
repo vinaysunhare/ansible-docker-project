@@ -189,20 +189,3 @@ git push origin main
 ## 📜 License
 
 © 2025 Sunhare MediCare Dashboard. All rights reserved.
-
----
-
-## 📝 Notes
-
-### SSH Key
-
-```bash
-ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
-cat ~/.ssh/id_rsa.pub
-```
-
-Add to GitHub under Settings > SSH and GPG keys.
-
-Ensure file structure matches Ansible paths. Flask Dockerfile and `requirements.txt` should be inside `roles/docker_setup/templates/backend/`.
-
-Grafana default login is `admin/admin`. Change password after login.
